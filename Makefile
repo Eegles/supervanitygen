@@ -8,7 +8,7 @@ OBJS=vanitygen.o base58.o rmd160.o sha256.o
 
 ifeq ($(shell uname -m),x86_64)
   CFLAGS := -march=native $(CFLAGS)
-  OBJS += sha256-avx-asm.o sha256-avx2-asm.o sha256-ssse3-asm.o sha256-ni-asm.o
+  OBJS += sha256/sha256-avx-asm.o sha256/sha256-avx2-asm.o sha256/sha256-ssse3-asm.o sha256/sha256-ni-asm.o
 else ifeq ($(shell uname -m),i686)
   CFLAGS := -march=native $(CFLAGS)
 endif
@@ -20,7 +20,7 @@ install: all
 	cp --remove-destination -p vanitygen /usr/local/bin/
 
 clean:
-	rm -f vanitygen *.o
+	rm -f vanitygen *.o sha256/*.o
 
 distclean: clean
 	$(MAKE) -C secp256k1 distclean
