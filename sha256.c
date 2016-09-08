@@ -189,13 +189,13 @@ void sha256_register(bool verbose)
     cpuid(7, 0, eax, ebx, ecx, edx);
     if(sha256_ni_built() && ebx & (1 << 29)) {
       if(verbose)
-        printf("Intel SHA-NI enabled.\n");
+        fprintf(stderr, "SHA256: Intel SHA-NI enabled.\n");
       sha256_transform_func=sha256_ni_transform;
       return;
     }
     if(sha256_rorx_built() && (ebx & (1 << 8)) && (ebx & (1 << 5))) {
       if(verbose)
-        printf("Intel AVX2 enabled.\n");
+        fprintf(stderr, "SHA256: Intel AVX2 enabled.\n");
       sha256_transform_func=sha256_transform_rorx;
       return;
     }
@@ -204,13 +204,13 @@ void sha256_register(bool verbose)
   cpuid(1, 0, eax, ebx, ecx, edx);
   if(sha256_avx_built() && ecx & (1 << 28)) {
     if(verbose)
-      printf("Intel AVX enabled.\n");
+      fprintf(stderr, "SHA256: Intel AVX enabled.\n");
     sha256_transform_func=sha256_transform_avx;
     return;
   }
   if(sha256_ssse3_built() && ecx & (1 << 9)) {
     if(verbose)
-      printf("Intel SSSE3 enabled.\n");
+      fprintf(stderr, "SHA256: Intel SSSE3 enabled.\n");
     sha256_transform_func=sha256_transform_ssse3;
     return;
   }
