@@ -46,6 +46,9 @@ static double difficulty;
 /* Per-thread hash counter */
 static u64 *thread_count;
 
+/* Public Key for split key generation */
+static u8 split_pub_bytes[65];
+
 /* Socket pair for sending up results */
 static int sock[2];
 
@@ -73,7 +76,9 @@ static bool verify_key(const u8 result[52]);
 int main(int argc, char *argv[])
 {
   char *arg;
-  int i, j, digits, parent_pid, ncpus=get_nprocs_conf(), threads=ncpus;
+  int i, j, k, digits, parent_pid, ncpus=get_nprocs_conf(), threads=ncpus;
+
+  split_pub_bytes[0] = 0;
 
   /* Process command-line arguments */
   for(i=1;i < argc;i++) {
@@ -81,6 +86,17 @@ int main(int argc, char *argv[])
       break;
     for(j=1;argv[i][j];j++) {
       switch(argv[i][j]) {
+      case 'P':  /* Public Key */
+        parse_arg();
+        if(strlen(arg) != 130 && strlen(arg) != 66) {
+          fprintf(stderr, "invalid public key length\n");
+          goto error;
+        }
+        for(k = 0; k < 65; k++) {
+          if(arg[k*2] == 0) { break; }
+          sscanf(&arg[k*2], "%2hhx", &split_pub_bytes[k]);
+        }
+        goto end_arg;
       case 'k':  /* Keep Going */
         keep_going=1;
         break;
@@ -133,10 +149,10 @@ int main(int argc, char *argv[])
   if(verbose) {
     digits=(num_patterns > 999)?4:(num_patterns > 99)?3:(num_patterns > 9)?2:1;
     for(i=0;i < num_patterns;i++) {
-      printf("P%0*d High limit: ", digits, i+1);
+      printf("P%0*d High limit:  ", digits, i+1);
       for(j=0;j < 20;j++)
         printf("%02x", patterns[i].high[j]);
-      printf("\nP%0*d Low limit:  ", digits, i+1);
+      printf("\nP%0*d Low limit:   ", digits, i+1);
       for(j=0;j < 20;j++)
         printf("%02x", patterns[i].low[j]);
       printf("\n");
@@ -304,12 +320,12 @@ static void announce_result(const u8 result[52])
 
   /* Display matching keys in hexadecimal */
   if(verbose) {
-    printf("Private match: ");
+    printf("Private match:  ");
     for(j=0;j < 32;j++)
       printf("%02x", result[j]);
     printf("\n");
 
-    printf("Public match:  ");
+    printf("Public match:   ");
     for(j=0;j < 20;j++)
       printf("%02x", result[j+32]);
     printf("\n");
@@ -332,7 +348,11 @@ static void announce_result(const u8 result[52])
   memcpy(priv_block+34, checksum, 4);
 
   b58enc(wif, priv_block, 38);
-  printf("PrivKey (WIF): %s\n", wif);
+  if(split_pub_bytes[0]) {
+    printf("PrivPart (WIF): %s\n", wif);
+  } else {
+    printf("PrivKey (WIF):  %s\n", wif);
+  }
 
   /* Convert Public Key to Compressed WIF */
 
@@ -346,7 +366,7 @@ static void announce_result(const u8 result[52])
   memcpy(pub_block+21, checksum, 4);
 
   b58enc(wif, pub_block, 25);
-  printf("PubKey (WIF):  %s\n", wif);
+  printf("Address:        %s\n", wif);
 
   /* Exit if we only requested one key */
   if(!keep_going)
@@ -608,7 +628,8 @@ static void engine(int thread)
   secp256k1_context *sec_ctx;
   secp256k1_scalar scalar_key, scalar_one;
   secp256k1_gej temp;
-  secp256k1_ge offset;
+  secp256k1_ge offset, split_ge;
+  secp256k1_pubkey split_pub;
 
   cpu_set_t cpuset;
   align8 u8 sha_block[64], rmd_block[64], result[52], *pubkey=result+32;
@@ -667,7 +688,19 @@ static void engine(int thread)
   privkey[3]=be64(privkey[3]);
 
   /* Create group elements for both the random private key and the value 1 */
-  secp256k1_ecmult_gen(&sec_ctx->ecmult_gen_ctx, &base[STEP-1], &scalar_key);
+  if(split_pub_bytes[0]) {
+    /* Set up for split key generation */
+    if(!secp256k1_ec_pubkey_parse(sec_ctx, &split_pub, (unsigned char *)&split_pub_bytes, split_pub_bytes[0] < 4 ? 33 : 65)) {
+      fprintf(stderr, "invalid public key!\n");
+      return;
+    }
+    secp256k1_pubkey_load(sec_ctx, &split_ge, &split_pub);
+    secp256k1_ecmult_gen(&sec_ctx->ecmult_gen_ctx, &temp, &scalar_key);
+    secp256k1_gej_add_ge_var(&base[STEP-1], &temp, &split_ge, NULL);
+  } else {
+    /* Set up for standalone key generation */
+    secp256k1_ecmult_gen(&sec_ctx->ecmult_gen_ctx, &base[STEP-1], &scalar_key);
+  }
   secp256k1_ecmult_gen(&sec_ctx->ecmult_gen_ctx, &temp, &scalar_one);
   secp256k1_ge_set_gej_var(&offset, &temp);
 
@@ -740,6 +773,9 @@ static bool verify_key(const u8 result[52])
   secp256k1_ge ge;
   align8 u8 sha_block[64], rmd_block[64], pubkey[20];
   int ret, overflow;
+
+  /* TODO: verification for split key generation */
+  if(split_pub_bytes[0]) { return 1; }
 
   /* Set up sha256 block for an input length of 33 bytes */
   sha256_prepare(sha_block, 33);
