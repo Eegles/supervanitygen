@@ -468,6 +468,12 @@ done_hash:
 	ret
 ENDPROC(sha256_transform_avx)
 
+ENTRY(sha256_avx_built)
+    xor         %eax,%eax
+    inc         %eax
+    ret
+ENDPROC(sha256_avx_built)
+
 .data
 .align 64
 K256:

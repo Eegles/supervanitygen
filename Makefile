@@ -25,6 +25,8 @@ clean:
 distclean: clean
 	$(MAKE) -C secp256k1 distclean
 
+sha256/sha256-%-asm.o: sha256/sha256-%-asm.S sha256/sha256-%-stub.S
+	$(CC) -c $< -o $@ >/dev/null 2>/dev/null || $(CC) -c $(subst asm,stub,$<) -o $@
 
 vanitygen: $(OBJS)
 

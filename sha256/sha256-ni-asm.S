@@ -335,6 +335,12 @@ ENTRY(sha256_ni_transform)
 	ret
 ENDPROC(sha256_ni_transform)
 
+ENTRY(sha256_ni_built)
+    xor         %eax,%eax
+    inc         %eax
+    ret
+ENDPROC(sha256_ni_built)
+
 .data
 .align 64
 K256:

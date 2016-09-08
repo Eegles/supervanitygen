@@ -480,6 +480,12 @@ done_hash:
 	ret
 ENDPROC(sha256_transform_ssse3)
 
+ENTRY(sha256_ssse3_built)
+    xor         %eax,%eax
+    inc         %eax
+    ret
+ENDPROC(sha256_ssse3_built)
+
 .data
 .align 64
 K256:

@@ -728,6 +728,12 @@ done_hash:
 	ret
 ENDPROC(sha256_transform_rorx)
 
+ENTRY(sha256_rorx_built)
+    xor         %eax,%eax
+    inc         %eax
+    ret
+ENDPROC(sha256_rorx_built)
+
 .data
 .align 64
 K256:
